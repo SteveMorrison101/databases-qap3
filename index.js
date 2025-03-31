@@ -11,8 +11,8 @@ mongoose.connect('mongodb://localhost:27017/cd_library', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
-.then(() => console.log('✅ Connected to MongoDB'))
-.catch(err => console.error('❌ MongoDB connection error:', err));
+.then(() => console.log('Connected to MongoDB'))
+.catch(err => console.error('MongoDB connection error:', err));
 
 // CD model
 const cdSchema = new mongoose.Schema({
@@ -24,10 +24,37 @@ const cdSchema = new mongoose.Schema({
 
 const CD = mongoose.model('CD', cdSchema);
 
-// Retrieve all CDs
+// Retrieve all CDs (with added filtering and field selection)
 app.get('/cds', async (req, res) => {
   try {
-    const cds = await CD.find();
+    const { artist, genre, before, fields } = req.query;
+    const filter = {};
+
+    if (artist) {
+      filter.artist = new RegExp(`^${artist}$`, 'i');
+    }
+
+    if (genre) {
+      filter.genre = new RegExp(`^${genre}$`, 'i');
+    }
+
+    if (before) {
+      const year = parseInt(before);
+      if (!isNaN(year)) {
+        filter.year = { $lt: year };
+      }
+    }
+
+    let projection = null;
+    if (fields) {
+      const fieldsArray = fields.split(',');
+      projection = {};
+      fieldsArray.forEach(field => {
+        projection[field.trim()] = 1;
+      });
+    }
+
+    const cds = await CD.find(filter, projection);
     res.json(cds);
   } catch (err) {
     res.status(500).json({ error: 'Server error while fetching CDs' });
@@ -71,4 +98,3 @@ app.delete('/cds/:id', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
-
